@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import com.example.dailyquotes.MainActivity
 import com.example.dailyquotes.R
 import com.example.dailyquotes.data.LocalStore
+import com.example.dailyquotes.reminder.ReminderScheduler
 import java.time.LocalDate
 
 /**
@@ -27,6 +28,8 @@ class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val store = LocalStore(context)
         val settings = store.loadSettings()
+        // Arm tomorrow's reminder first, so the next one is set even if this one is skipped.
+        ReminderScheduler.apply(context, settings)
         if (!settings.reminderEnabled) return
 
         val todayEntry = store.loadEntries()[LocalDate.now()]

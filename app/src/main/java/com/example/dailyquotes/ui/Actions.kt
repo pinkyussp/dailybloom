@@ -18,6 +18,7 @@ fun shareJournal(context: Context, text: String) {
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
+    LockGuard.skipNextStop = true
     context.startActivity(Intent.createChooser(intent, "Export journal"))
 }
 

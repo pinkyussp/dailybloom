@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.sp
 object Markup {
     private val bold = Regex("\\*\\*(.+?)\\*\\*")
     private val underline = Regex("__(.+?)__")
-    private val italic = Regex("(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)")
+    private val italic = Regex("(?<!\\*)\\*(?=[^\\s*])(.+?)(?<=[^\\s*])\\*(?!\\*)")
     private val heading = Regex("(?m)^# (.*)$")
 
     fun styled(text: String, markerColor: Color): AnnotatedString {

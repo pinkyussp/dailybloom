@@ -221,6 +221,7 @@ fun JournalScreen(
             )
             AssistChip(
                 onClick = {
+                    LockGuard.skipNextStop = true
                     pickPhotos.launch(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                     )

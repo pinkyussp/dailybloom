@@ -51,6 +51,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val locked: StateFlow<Boolean> = _locked.asStateFlow()
 
     private var saveJob: Job? = null
+    private val dirtyDates = mutableSetOf<LocalDate>()
 
     // ---- Journal (today only) ------------------------------------------
 
@@ -67,6 +68,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             map[date] = updated
         }
         _entries.value = map
+        dirtyDates += date
         _todayEntry.value = if (updated.isBlank) null else updated
         _streak.value = currentStreak(map, date)
         scheduleSave()
@@ -99,9 +101,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         saveJob?.cancel()
         saveJob = viewModelScope.launch {
             delay(400)
+            val changed = dirtyDates.toList()
+            dirtyDates.clear()
             val snapshot = _entries.value
-            // Serialising the whole journal is slow, so keep it off the UI thread.
-            withContext(Dispatchers.IO) { store.saveEntries(snapshot) }
+            // Only the days that changed are written, and off the UI thread.
+            withContext(Dispatchers.IO) {
+                changed.forEach { date ->
+                    val entry = snapshot[date]
+                    if (entry != null) store.saveEntry(entry) else store.deleteEntry(date)
+                }
+            }
         }
     }
 
@@ -114,7 +123,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _entries.value = emptyMap()
         _todayEntry.value = null
         _streak.value = 0
-        store.saveEntries(emptyMap())
+        dirtyDates.clear()
+        store.deleteAllEntries()
         PhotoStore.deleteAll(getApplication())
     }
 

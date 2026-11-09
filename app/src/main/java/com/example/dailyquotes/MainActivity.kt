@@ -9,6 +9,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dailyquotes.ui.AppViewModel
 import com.example.dailyquotes.ui.DailyQuotesApp
+import com.example.dailyquotes.ui.LockGuard
 import com.example.dailyquotes.ui.LockScreen
 import com.example.dailyquotes.ui.theme.DailyQuotesTheme
 
@@ -35,9 +36,19 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        LockGuard.skipNextStop = false
+    }
+
     override fun onStop() {
         super.onStop()
-        // Lock again whenever the app leaves the foreground, if app lock is on.
-        viewModel.lockIfEnabled()
+        // Lock again when the app leaves the foreground, unless we are only opening
+        // the photo picker or share sheet ourselves.
+        if (LockGuard.skipNextStop) {
+            LockGuard.skipNextStop = false
+        } else {
+            viewModel.lockIfEnabled()
+        }
     }
 }

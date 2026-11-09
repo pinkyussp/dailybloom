@@ -13,42 +13,78 @@ class LocalStore(context: Context) {
         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     // ---- Entries -------------------------------------------------------
+    // Each day is stored under its own key, so saving one day only writes that day.
 
     fun loadEntries(): Map<LocalDate, Entry> {
-        val raw = prefs.getString(KEY_ENTRIES, null) ?: return emptyMap()
-        return try {
-            val root = JSONObject(raw)
-            root.keys().asSequence().associate { key ->
-                val obj = root.getJSONObject(key)
-                val photosJson = obj.optJSONArray("photos") ?: JSONArray()
-                val date = LocalDate.parse(key)
-                val moodName = obj.optString("mood")
-                date to Entry(
-                    date = date,
-                    title = obj.optString("title"),
-                    body = obj.optString("body"),
-                    mood = Mood.entries.firstOrNull { it.name == moodName },
-                    photos = List(photosJson.length()) { index -> photosJson.getString(index) }
-                )
-            }
-        } catch (e: Exception) {
-            emptyMap()
+        migrateLegacyEntries()
+        val result = HashMap<LocalDate, Entry>()
+        prefs.all.forEach { (key, value) ->
+            if (!key.startsWith(ENTRY_PREFIX)) return@forEach
+            val entry = (value as? String)?.let { parseEntry(it) } ?: return@forEach
+            result[entry.date] = entry
         }
+        return result
     }
 
-    fun saveEntries(entries: Map<LocalDate, Entry>) {
-        val root = JSONObject()
-        entries.values.forEach { entry ->
-            root.put(
-                entry.date.toString(),
-                JSONObject()
-                    .put("title", entry.title)
-                    .put("body", entry.body)
-                    .put("mood", entry.mood?.name ?: "")
-                    .put("photos", JSONArray(entry.photos))
-            )
+    fun saveEntry(entry: Entry) {
+        prefs.edit { putString(ENTRY_PREFIX + entry.date, entryJson(entry).toString()) }
+    }
+
+    fun deleteEntry(date: LocalDate) {
+        prefs.edit { remove(ENTRY_PREFIX + date) }
+    }
+
+    fun deleteAllEntries() {
+        val keys = prefs.all.keys.filter { it.startsWith(ENTRY_PREFIX) || it == KEY_ENTRIES }
+        prefs.edit { keys.forEach { remove(it) } }
+    }
+
+    private fun entryJson(entry: Entry): JSONObject = JSONObject()
+        .put("date", entry.date.toString())
+        .put("title", entry.title)
+        .put("body", entry.body)
+        .put("mood", entry.mood?.name ?: "")
+        .put("photos", JSONArray(entry.photos))
+
+    private fun parseEntry(raw: String): Entry? = try {
+        val obj = JSONObject(raw)
+        val photosJson = obj.optJSONArray("photos") ?: JSONArray()
+        val moodName = obj.optString("mood")
+        Entry(
+            date = LocalDate.parse(obj.getString("date")),
+            title = obj.optString("title"),
+            body = obj.optString("body"),
+            mood = Mood.entries.firstOrNull { it.name == moodName },
+            photos = List(photosJson.length()) { index -> photosJson.getString(index) }
+        )
+    } catch (e: Exception) {
+        null
+    }
+
+    /** Moves the older single-blob storage into per-day keys. Runs once, then does nothing. */
+    private fun migrateLegacyEntries() {
+        val raw = prefs.getString(KEY_ENTRIES, null) ?: return
+        try {
+            val root = JSONObject(raw)
+            prefs.edit {
+                root.keys().forEach { key ->
+                    val obj = root.getJSONObject(key)
+                    val photosJson = obj.optJSONArray("photos") ?: JSONArray()
+                    val moodName = obj.optString("mood")
+                    val entry = Entry(
+                        date = LocalDate.parse(key),
+                        title = obj.optString("title"),
+                        body = obj.optString("body"),
+                        mood = Mood.entries.firstOrNull { it.name == moodName },
+                        photos = List(photosJson.length()) { index -> photosJson.getString(index) }
+                    )
+                    putString(ENTRY_PREFIX + key, entryJson(entry).toString())
+                }
+                remove(KEY_ENTRIES)
+            }
+        } catch (e: Exception) {
+            // Leave the old blob in place if it cannot be read.
         }
-        prefs.edit { putString(KEY_ENTRIES, root.toString()) }
     }
 
     // ---- First day -----------------------------------------------------
@@ -97,6 +133,7 @@ class LocalStore(context: Context) {
     private companion object {
         const val PREFS_NAME = "dailybloom"
         const val KEY_ENTRIES = "entries"
+        const val ENTRY_PREFIX = "entry:"
         const val KEY_FIRST_DAY = "first_day"
         const val KEY_THEME = "theme_mode"
         const val KEY_ACCENT = "accent"
