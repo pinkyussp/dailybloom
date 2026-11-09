@@ -3,7 +3,7 @@ package com.example.dailyquotes.data
 import org.json.JSONObject
 
 data class Quote(
-    val id: Int,
+    val id: String,
     val text: String,
     val author: String
 ) {
@@ -15,12 +15,12 @@ data class Quote(
         .put("author", author)
 
     companion object {
-        /** Parses the DummyJSON response shape: { "id", "quote", "author" }. */
+        /** Parses a Quotable response item: { "_id", "content", "author", ... }. */
         fun fromApiJson(json: JSONObject): Quote {
-            val text = json.optString("quote").trim()
+            val text = json.optString("content").trim()
             require(text.isNotEmpty()) { "Quote text was empty" }
             return Quote(
-                id = json.optInt("id"),
+                id = json.getString("_id"),
                 text = text,
                 author = json.optString("author").ifBlank { "Unknown" }
             )
@@ -28,7 +28,7 @@ data class Quote(
 
         /** Parses the shape this app writes to local storage. Throws JSONException if malformed. */
         fun fromStorageJson(json: JSONObject): Quote = Quote(
-            id = json.getInt("id"),
+            id = json.getString("id"),
             text = json.getString("text"),
             author = json.getString("author")
         )

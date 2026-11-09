@@ -2,15 +2,19 @@ package com.example.dailyquotes.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
+import org.json.JSONArray
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Minimal HTTP client for the DummyJSON quotes endpoint. No third-party networking library. */
+/**
+ * Minimal HTTP client for the Quotable API (https://github.com/lukePeavey/quotable),
+ * which serves a library of several thousand quotes from many authors.
+ * No third-party networking library.
+ */
 object QuoteApi {
 
-    private const val RANDOM_QUOTE_URL = "https://dummyjson.com/quotes/random"
+    private const val RANDOM_QUOTE_URL = "https://api.quotable.io/quotes/random"
 
     suspend fun fetchRandomQuote(): Quote = withContext(Dispatchers.IO) {
         val connection = URL(RANDOM_QUOTE_URL).openConnection() as HttpURLConnection
@@ -24,7 +28,11 @@ object QuoteApi {
             if (code !in 200..299) throw IOException("Server returned HTTP $code")
 
             val body = connection.inputStream.bufferedReader().use { it.readText() }
-            Quote.fromApiJson(JSONObject(body))
+
+            // Quotable returns an array containing one quote.
+            val array = JSONArray(body)
+            if (array.length() == 0) throw IOException("No quote returned")
+            Quote.fromApiJson(array.getJSONObject(0))
         } finally {
             connection.disconnect()
         }

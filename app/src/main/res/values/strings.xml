@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">Dailybloom</string>
     <string name="reminder_title">Your daily motivation</string>
+    <string name="reminder_fallback">Open Dailybloom for today\'s quote.</string>
 </resources>

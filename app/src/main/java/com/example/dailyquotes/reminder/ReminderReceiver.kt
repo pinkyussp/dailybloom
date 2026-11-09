@@ -17,14 +17,38 @@ import com.example.dailyquotes.MainActivity
 import com.example.dailyquotes.R
 import com.example.dailyquotes.data.LocalStore
 import com.example.dailyquotes.data.Quote
+import com.example.dailyquotes.data.QuoteApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
-/** Fired by AlarmManager at the reminder time; shows the daily notification. */
+/**
+ * Fired by AlarmManager at the reminder time. Shows a notification containing today's quote,
+ * fetching a fresh one first if none has been saved yet today.
+ */
 class ReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val store = LocalStore(context)
         if (!store.loadSettings().reminderEnabled) return
-        showNotification(context, store.loadTodayQuote())
+
+        // goAsync keeps the receiver alive while the network request runs.
+        val pendingResult = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                val quote = try {
+                    store.loadTodayQuote() ?: QuoteApi.fetchRandomQuote().also {
+                        store.saveTodayQuote(it)
+                    }
+                } catch (e: Exception) {
+                    null // Offline: fall back to a generic notification.
+                }
+                showNotification(context, quote)
+            } finally {
+                pendingResult.finish()
+            }
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -46,7 +70,7 @@ class ReminderReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val text = quote?.shareText() ?: "Open the app to find today's motivation."
+        val text = quote?.shareText() ?: context.getString(R.string.reminder_fallback)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)

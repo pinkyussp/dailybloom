@@ -119,7 +119,7 @@ fun SettingsScreen(
                 )
                 Text(
                     text = "A calm place for a little motivation each day. Quotes come from " +
-                        "DummyJSON. Favourites and settings stay on your device, and no account " +
+                        "Quotable. Favourites and settings stay on your device, and no account " +
                         "is needed.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
