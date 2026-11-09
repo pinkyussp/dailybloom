@@ -34,7 +34,6 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             // Shrinking is off: it would need rules I can't test here, and a crash on launch is worse than a larger file.
             isMinifyEnabled = false
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
