@@ -32,6 +32,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _entries = MutableStateFlow(store.loadEntries())
     val entries: StateFlow<Map<LocalDate, Entry>> = _entries.asStateFlow()
 
+    // Separate, narrow flows so typing only refreshes the journal, not the whole app.
+    private val _todayEntry = MutableStateFlow(_entries.value[LocalDate.now()])
+    val todayEntry: StateFlow<Entry?> = _todayEntry.asStateFlow()
+
+    private val _streak = MutableStateFlow(currentStreak(_entries.value, LocalDate.now()))
+    val streak: StateFlow<Int> = _streak.asStateFlow()
+
     private val _firstDay = MutableStateFlow(
         store.loadFirstDay() ?: LocalDate.now().also { store.saveFirstDay(it) }
     )
@@ -60,6 +67,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             map[date] = updated
         }
         _entries.value = map
+        _todayEntry.value = if (updated.isBlank) null else updated
+        _streak.value = currentStreak(map, date)
         scheduleSave()
     }
 
@@ -90,7 +99,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         saveJob?.cancel()
         saveJob = viewModelScope.launch {
             delay(400)
-            store.saveEntries(_entries.value)
+            val snapshot = _entries.value
+            // Serialising the whole journal is slow, so keep it off the UI thread.
+            withContext(Dispatchers.IO) { store.saveEntries(snapshot) }
         }
     }
 
@@ -101,6 +112,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteAllData() {
         saveJob?.cancel()
         _entries.value = emptyMap()
+        _todayEntry.value = null
+        _streak.value = 0
         store.saveEntries(emptyMap())
         PhotoStore.deleteAll(getApplication())
     }

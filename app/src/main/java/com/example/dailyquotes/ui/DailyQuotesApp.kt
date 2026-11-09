@@ -28,16 +28,16 @@ enum class AppTab(val label: String, val icon: ImageVector) {
     Settings("Settings", Icons.Filled.Settings)
 }
 
-/** Root composable: a swipeable pager of the three screens, with a bottom bar kept in sync. */
+/**
+ * Root composable: a swipeable pager of the three screens, with a bottom bar kept in sync.
+ * Each tab collects only the state it needs, so typing in the journal does not
+ * recompose the calendar or settings.
+ */
 @Composable
 fun DailyQuotesApp(viewModel: AppViewModel) {
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { AppTab.entries.size })
     val todayDate = remember { LocalDate.now() }
-
-    val entries by viewModel.entries.collectAsStateWithLifecycle()
-    val firstDay by viewModel.firstDay.collectAsStateWithLifecycle()
-    val settings by viewModel.settings.collectAsStateWithLifecycle()
 
     Scaffold(
         bottomBar = {
@@ -60,27 +60,46 @@ fun DailyQuotesApp(viewModel: AppViewModel) {
             modifier = Modifier.padding(innerPadding)
         ) { page ->
             when (AppTab.entries[page]) {
-                AppTab.Journal -> JournalScreen(
-                    entry = entries[todayDate],
-                    showPrompt = settings.showPrompts,
-                    streak = currentStreak(entries, todayDate),
-                    onUpdate = viewModel::updateToday,
-                    onAddPhotos = viewModel::addPhotos,
-                    onRemovePhoto = viewModel::removePhoto
-                )
-
-                AppTab.Calendar -> CalendarScreen(
-                    entries = entries,
-                    firstDay = firstDay,
-                    today = todayDate,
-                    weekStartsMonday = settings.weekStartsMonday
-                )
-
-                AppTab.Settings -> SettingsScreen(
-                    settings = settings,
-                    viewModel = viewModel
-                )
+                AppTab.Journal -> JournalRoute(viewModel)
+                AppTab.Calendar -> CalendarRoute(viewModel, todayDate)
+                AppTab.Settings -> SettingsRoute(viewModel)
             }
         }
     }
+}
+
+@Composable
+private fun JournalRoute(viewModel: AppViewModel) {
+    val entry by viewModel.todayEntry.collectAsStateWithLifecycle()
+    val streak by viewModel.streak.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+
+    JournalScreen(
+        entry = entry,
+        showPrompt = settings.showPrompts,
+        streak = streak,
+        onUpdate = viewModel::updateToday,
+        onAddPhotos = viewModel::addPhotos,
+        onRemovePhoto = viewModel::removePhoto
+    )
+}
+
+@Composable
+private fun CalendarRoute(viewModel: AppViewModel, today: LocalDate) {
+    val entries by viewModel.entries.collectAsStateWithLifecycle()
+    val firstDay by viewModel.firstDay.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+
+    CalendarScreen(
+        entries = entries,
+        firstDay = firstDay,
+        today = today,
+        weekStartsMonday = settings.weekStartsMonday
+    )
+}
+
+@Composable
+private fun SettingsRoute(viewModel: AppViewModel) {
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    SettingsScreen(settings = settings, viewModel = viewModel)
 }

@@ -240,8 +240,10 @@ fun JournalScreen(
             }
         }
 
+        val words = body.text.trim().split(Regex("\\s+")).count { it.isNotEmpty() }
         Text(
-            text = "Saved automatically as you type.",
+            text = if (words == 0) "Saved automatically" else
+                "$words ${if (words == 1) "word" else "words"} · Saved automatically",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
