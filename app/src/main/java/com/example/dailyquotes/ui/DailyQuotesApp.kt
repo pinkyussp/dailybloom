@@ -23,22 +23,19 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 enum class AppTab(val label: String, val icon: ImageVector) {
-    Today("Today", Icons.Filled.Edit),
+    Journal("Journal", Icons.Filled.Edit),
     Calendar("Calendar", Icons.Filled.DateRange),
     Settings("Settings", Icons.Filled.Settings)
 }
 
-/**
- * Root composable: a swipeable pager of the three screens, with a bottom navigation bar
- * that stays in sync with it.
- */
+/** Root composable: a swipeable pager of the three screens, with a bottom bar kept in sync. */
 @Composable
 fun DailyQuotesApp(viewModel: AppViewModel) {
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { AppTab.entries.size })
     val todayDate = remember { LocalDate.now() }
 
-    val notes by viewModel.notes.collectAsStateWithLifecycle()
+    val entries by viewModel.entries.collectAsStateWithLifecycle()
     val firstDay by viewModel.firstDay.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
 
@@ -63,23 +60,25 @@ fun DailyQuotesApp(viewModel: AppViewModel) {
             modifier = Modifier.padding(innerPadding)
         ) { page ->
             when (AppTab.entries[page]) {
-                AppTab.Today -> TodayScreen(
-                    date = todayDate,
-                    savedText = notes[todayDate],
-                    onSave = { viewModel.saveNote(todayDate, it) }
+                AppTab.Journal -> JournalScreen(
+                    entry = entries[todayDate],
+                    showPrompt = settings.showPrompts,
+                    streak = currentStreak(entries, todayDate),
+                    onUpdate = viewModel::updateToday,
+                    onAddPhotos = viewModel::addPhotos,
+                    onRemovePhoto = viewModel::removePhoto
                 )
 
                 AppTab.Calendar -> CalendarScreen(
-                    notes = notes,
+                    entries = entries,
                     firstDay = firstDay,
-                    today = todayDate
+                    today = todayDate,
+                    weekStartsMonday = settings.weekStartsMonday
                 )
 
                 AppTab.Settings -> SettingsScreen(
                     settings = settings,
-                    onDarkThemeChange = viewModel::setDarkTheme,
-                    onReminderToggle = viewModel::setReminderEnabled,
-                    onReminderTimeChange = viewModel::setReminderTime
+                    viewModel = viewModel
                 )
             }
         }

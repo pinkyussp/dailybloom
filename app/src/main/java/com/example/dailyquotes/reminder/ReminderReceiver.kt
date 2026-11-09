@@ -19,20 +19,24 @@ import com.example.dailyquotes.data.LocalStore
 import java.time.LocalDate
 
 /**
- * Fired by AlarmManager at the reminder time. Prompts the user to write today's note,
- * unless today's note is already written.
+ * Fired by AlarmManager at the reminder time. Prompts the user to write today's entry,
+ * unless today's entry is already written.
  */
 class ReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val store = LocalStore(context)
-        if (!store.loadSettings().reminderEnabled) return
-        if (store.loadNotes().containsKey(LocalDate.now())) return
-        showNotification(context)
+        val settings = store.loadSettings()
+        if (!settings.reminderEnabled) return
+
+        val todayEntry = store.loadEntries()[LocalDate.now()]
+        if (todayEntry != null && !todayEntry.isBlank) return
+
+        showNotification(context, settings.reminderMessage)
     }
 
     @SuppressLint("MissingPermission")
-    private fun showNotification(context: Context) {
+    private fun showNotification(context: Context, message: String) {
         // Android 13+ requires the user to grant notification permission.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -53,7 +57,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.reminder_title))
-            .setContentText(context.getString(R.string.reminder_text))
+            .setContentText(message)
             .setContentIntent(openApp)
             .setAutoCancel(true)
             .build()
@@ -67,7 +71,7 @@ class ReminderReceiver : BroadcastReceiver() {
             "Daily reminder",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "A daily reminder to write your note"
+            description = "A daily reminder to write your journal entry"
         }
         context.getSystemService(NotificationManager::class.java)
             .createNotificationChannel(channel)

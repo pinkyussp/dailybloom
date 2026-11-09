@@ -3,6 +3,7 @@ package com.example.dailyquotes.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,46 +41,54 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.dailyquotes.data.Entry
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 private enum class DayStatus { Written, Missed, Pending, Future, BeforeStart }
 
-/** Works out how a day should look: written, missed, still open, in the future, or before the app. */
+/** Works out how a day should look. Only today can be written; past days are read-only. */
 private fun statusOf(
     date: LocalDate,
     today: LocalDate,
     firstDay: LocalDate,
-    notes: Map<LocalDate, String>
+    entries: Map<LocalDate, Entry>
 ): DayStatus = when {
     date.isAfter(today) -> DayStatus.Future
-    notes.containsKey(date) -> DayStatus.Written
+    entries.containsKey(date) -> DayStatus.Written
     date == today -> DayStatus.Pending
     date.isBefore(firstDay) -> DayStatus.BeforeStart
     else -> DayStatus.Missed
 }
 
-/** Month view of notes. Tap a day to read what was written, or see that it was missed. */
+/** Month view of the journal. Opens on today. Tap a day to read it. */
 @Composable
 fun CalendarScreen(
-    notes: Map<LocalDate, String>,
+    entries: Map<LocalDate, Entry>,
     firstDay: LocalDate,
     today: LocalDate,
+    weekStartsMonday: Boolean,
     modifier: Modifier = Modifier
 ) {
     var month by remember { mutableStateOf(YearMonth.from(today)) }
-    var selected by remember { mutableStateOf<LocalDate?>(null) }
+    var selected by remember { mutableStateOf<LocalDate?>(today) }
 
     val monthDays = (1..month.lengthOfMonth()).map { month.atDay(it) }
-    val leadingBlanks = month.atDay(1).dayOfWeek.value % 7 // Sunday is the first column
+    val firstWeekday = month.atDay(1).dayOfWeek.value
+    val leadingBlanks = if (weekStartsMonday) firstWeekday - 1 else firstWeekday % 7
     val cells: List<LocalDate?> = List(leadingBlanks) { null } + monthDays
     val weeks = cells.chunked(7).map { week ->
         week + List<LocalDate?>(7 - week.size) { null }
     }
+    val labels = if (weekStartsMonday) {
+        listOf("M", "T", "W", "T", "F", "S", "S")
+    } else {
+        listOf("S", "M", "T", "W", "T", "F", "S")
+    }
 
-    val written = monthDays.count { statusOf(it, today, firstDay, notes) == DayStatus.Written }
-    val missed = monthDays.count { statusOf(it, today, firstDay, notes) == DayStatus.Missed }
+    val written = monthDays.count { statusOf(it, today, firstDay, entries) == DayStatus.Written }
+    val missed = monthDays.count { statusOf(it, today, firstDay, entries) == DayStatus.Missed }
 
     Column(
         modifier = modifier
@@ -118,7 +128,7 @@ fun CalendarScreen(
         )
 
         Row(modifier = Modifier.fillMaxWidth()) {
-            listOf("S", "M", "T", "W", "T", "F", "S").forEach { label ->
+            labels.forEach { label ->
                 Text(
                     text = label,
                     modifier = Modifier.weight(1f),
@@ -134,7 +144,7 @@ fun CalendarScreen(
                 week.forEach { date ->
                     DayCell(
                         date = date,
-                        status = date?.let { statusOf(it, today, firstDay, notes) },
+                        status = date?.let { statusOf(it, today, firstDay, entries) },
                         isToday = date == today,
                         isSelected = date != null && date == selected,
                         onClick = { selected = date },
@@ -150,12 +160,12 @@ fun CalendarScreen(
         if (chosen != null) {
             DayDetail(
                 date = chosen,
-                status = statusOf(chosen, today, firstDay, notes),
-                note = notes[chosen]
+                status = statusOf(chosen, today, firstDay, entries),
+                entry = entries[chosen]
             )
         } else {
             Text(
-                text = "Tap a day to see what you wrote.",
+                text = "Tap a day to read your entry.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -225,7 +235,7 @@ private fun DayCell(
 }
 
 @Composable
-private fun DayDetail(date: LocalDate, status: DayStatus, note: String?) {
+private fun DayDetail(date: LocalDate, status: DayStatus, entry: Entry?) {
     val scheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -250,11 +260,49 @@ private fun DayDetail(date: LocalDate, status: DayStatus, note: String?) {
                     else -> scheme.onSurfaceVariant
                 }
             )
-            if (note != null) {
+
+            if (entry != null) {
+                entry.mood?.let { mood ->
+                    Text(
+                        text = "Mood: ${mood.label}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = scheme.onSurfaceVariant
+                    )
+                }
+                if (entry.title.isNotBlank()) {
+                    Text(
+                        text = entry.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = scheme.onSurface
+                    )
+                }
+                if (entry.body.isNotBlank()) {
+                    Text(
+                        text = entry.body,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = scheme.onSurface
+                    )
+                }
+                if (entry.photos.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        entry.photos.forEach { name ->
+                            PhotoThumb(fileName = name, size = 96.dp)
+                        }
+                    }
+                }
+            }
+
+            if (status == DayStatus.Pending) {
                 Text(
-                    text = note,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = scheme.onSurface
+                    text = "Write today's entry in the Journal tab.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant
                 )
             }
         }
@@ -262,8 +310,8 @@ private fun DayDetail(date: LocalDate, status: DayStatus, note: String?) {
 }
 
 private fun statusLabel(status: DayStatus): String = when (status) {
-    DayStatus.Written -> "Note written"
-    DayStatus.Missed -> "Missed, no note was written"
+    DayStatus.Written -> "Entry written"
+    DayStatus.Missed -> "Missed. No entry was written this day."
     DayStatus.Pending -> "Not written yet today"
     DayStatus.Future -> "Coming up"
     DayStatus.BeforeStart -> "Before you started Dailybloom"
