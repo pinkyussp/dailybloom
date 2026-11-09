@@ -2,61 +2,47 @@ package com.example.dailyquotes.data
 
 import android.content.Context
 import androidx.core.content.edit
-import org.json.JSONArray
-import org.json.JSONException
 import org.json.JSONObject
 import java.time.LocalDate
 
 /**
- * Persists today's quote, favourites and settings in SharedPreferences.
+ * Persists notes, the first day the app was used, and settings in SharedPreferences.
+ * Everything stays on the device.
  */
 class LocalStore(context: Context) {
 
     private val prefs = context.applicationContext
         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    // ---- Today's quote -------------------------------------------------
+    // ---- Notes ---------------------------------------------------------
 
-    /** Returns the quote saved for today, or null if none was saved today. */
-    fun loadTodayQuote(): Quote? {
-        val raw = prefs.getString(KEY_TODAY_QUOTE, null) ?: return null
+    /** All notes keyed by date. Days without a note are absent from the map. */
+    fun loadNotes(): Map<LocalDate, String> {
+        val raw = prefs.getString(KEY_NOTES, null) ?: return emptyMap()
         return try {
             val json = JSONObject(raw)
-            if (json.getString("date") != today()) {
-                null
-            } else {
-                Quote.fromStorageJson(json.getJSONObject("quote"))
+            json.keys().asSequence().associate { key ->
+                LocalDate.parse(key) to json.getString(key)
             }
-        } catch (e: JSONException) {
-            null
+        } catch (e: Exception) {
+            emptyMap()
         }
     }
 
-    fun saveTodayQuote(quote: Quote) {
+    fun saveNotes(notes: Map<LocalDate, String>) {
         val json = JSONObject()
-            .put("date", today())
-            .put("quote", quote.toStorageJson())
-        prefs.edit { putString(KEY_TODAY_QUOTE, json.toString()) }
+        notes.forEach { (date, text) -> json.put(date.toString(), text) }
+        prefs.edit { putString(KEY_NOTES, json.toString()) }
     }
 
-    // ---- Favourites ----------------------------------------------------
+    // ---- First day -----------------------------------------------------
 
-    fun loadFavourites(): List<Quote> {
-        val raw = prefs.getString(KEY_FAVOURITES, null) ?: return emptyList()
-        return try {
-            val array = JSONArray(raw)
-            List(array.length()) { index ->
-                Quote.fromStorageJson(array.getJSONObject(index))
-            }
-        } catch (e: JSONException) {
-            emptyList()
-        }
-    }
+    /** The first day the app was opened. Days before this are never counted as missed. */
+    fun loadFirstDay(): LocalDate? =
+        prefs.getString(KEY_FIRST_DAY, null)?.let { LocalDate.parse(it) }
 
-    fun saveFavourites(quotes: List<Quote>) {
-        val array = JSONArray()
-        quotes.forEach { array.put(it.toStorageJson()) }
-        prefs.edit { putString(KEY_FAVOURITES, array.toString()) }
+    fun saveFirstDay(date: LocalDate) {
+        prefs.edit { putString(KEY_FIRST_DAY, date.toString()) }
     }
 
     // ---- Settings ------------------------------------------------------
@@ -77,12 +63,10 @@ class LocalStore(context: Context) {
         }
     }
 
-    private fun today(): String = LocalDate.now().toString()
-
     private companion object {
-        const val PREFS_NAME = "daily_quotes"
-        const val KEY_TODAY_QUOTE = "today_quote"
-        const val KEY_FAVOURITES = "favourites"
+        const val PREFS_NAME = "dailybloom"
+        const val KEY_NOTES = "notes"
+        const val KEY_FIRST_DAY = "first_day"
         const val KEY_DARK_THEME = "dark_theme"
         const val KEY_REMINDER_ENABLED = "reminder_enabled"
         const val KEY_REMINDER_HOUR = "reminder_hour"

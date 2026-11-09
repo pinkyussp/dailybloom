@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Dailybloom</string>
-    <string name="reminder_title">Your daily motivation</string>
-    <string name="reminder_fallback">Open Dailybloom for today\'s quote.</string>
+    <string name="reminder_title">Time to write today\'s note</string>
+    <string name="reminder_text">Take a moment to write about your day.</string>
 </resources>

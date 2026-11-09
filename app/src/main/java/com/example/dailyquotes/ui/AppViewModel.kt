@@ -2,91 +2,43 @@ package com.example.dailyquotes.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.dailyquotes.data.AppSettings
 import com.example.dailyquotes.data.LocalStore
-import com.example.dailyquotes.data.Quote
-import com.example.dailyquotes.data.QuoteApi
 import com.example.dailyquotes.reminder.ReminderScheduler
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-
-data class TodayUiState(
-    val quote: Quote? = null,
-    val isLoading: Boolean = false,
-    val error: String? = null
-)
+import java.time.LocalDate
 
 /** Holds all app state. Screens observe the flows and call the functions below. */
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val store = LocalStore(application)
 
-    private val _today = MutableStateFlow(TodayUiState())
-    val today: StateFlow<TodayUiState> = _today.asStateFlow()
+    private val _notes = MutableStateFlow(store.loadNotes())
+    val notes: StateFlow<Map<LocalDate, String>> = _notes.asStateFlow()
 
-    private val _favourites = MutableStateFlow(store.loadFavourites())
-    val favourites: StateFlow<List<Quote>> = _favourites.asStateFlow()
+    private val _firstDay = MutableStateFlow(
+        store.loadFirstDay() ?: LocalDate.now().also { store.saveFirstDay(it) }
+    )
+    val firstDay: StateFlow<LocalDate> = _firstDay.asStateFlow()
 
     private val _settings = MutableStateFlow(store.loadSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
-    init {
-        // Reuse today's saved quote; only hit the network when there isn't one yet.
-        val saved = store.loadTodayQuote()
-        if (saved != null) {
-            _today.value = TodayUiState(quote = saved)
+    // ---- Notes ---------------------------------------------------------
+
+    /** Saves the note for [date]. Blank text removes the note for that day. */
+    fun saveNote(date: LocalDate, text: String) {
+        val trimmed = text.trim()
+        val updated = _notes.value.toMutableMap()
+        if (trimmed.isEmpty()) {
+            updated.remove(date)
         } else {
-            fetchNewQuote()
+            updated[date] = trimmed
         }
-    }
-
-    // ---- Today ---------------------------------------------------------
-
-    fun fetchNewQuote() {
-        if (_today.value.isLoading) return
-        viewModelScope.launch {
-            _today.update { it.copy(isLoading = true, error = null) }
-            try {
-                val quote = QuoteApi.fetchRandomQuote()
-                store.saveTodayQuote(quote)
-                _today.value = TodayUiState(quote = quote)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _today.update {
-                    it.copy(
-                        isLoading = false,
-                        error = "Couldn't load a quote. Check your connection and try again."
-                    )
-                }
-            }
-        }
-    }
-
-    // ---- Favourites ----------------------------------------------------
-
-    fun toggleFavourite(quote: Quote) {
-        val current = _favourites.value
-        val updated = if (current.any { it.id == quote.id }) {
-            current.filterNot { it.id == quote.id }
-        } else {
-            listOf(quote) + current // newest first
-        }
-        saveFavourites(updated)
-    }
-
-    fun removeFavourite(quote: Quote) {
-        saveFavourites(_favourites.value.filterNot { it.id == quote.id })
-    }
-
-    private fun saveFavourites(quotes: List<Quote>) {
-        _favourites.value = quotes
-        store.saveFavourites(quotes)
+        _notes.value = updated
+        store.saveNotes(updated)
     }
 
     // ---- Settings ------------------------------------------------------

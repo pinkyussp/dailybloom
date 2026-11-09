@@ -118,8 +118,9 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "A calm place for a little motivation each day. Quotes come from " +
-                        "Quotable. Favourites and settings stay on your device, and no account " +
+                    text = "A private daily notes journal. Write what happened each day, " +
+                        "then look back on your calendar to see which days you wrote and " +
+                        "which you missed. Everything stays on your device, and no account " +
                         "is needed.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface

@@ -1,40 +1,5 @@
 package com.example.dailyquotes.data
 
-import org.json.JSONObject
-
-data class Quote(
-    val id: String,
-    val text: String,
-    val author: String
-) {
-    fun shareText(): String = "“$text” — $author"
-
-    fun toStorageJson(): JSONObject = JSONObject()
-        .put("id", id)
-        .put("text", text)
-        .put("author", author)
-
-    companion object {
-        /** Parses a Quotable response item: { "_id", "content", "author", ... }. */
-        fun fromApiJson(json: JSONObject): Quote {
-            val text = json.optString("content").trim()
-            require(text.isNotEmpty()) { "Quote text was empty" }
-            return Quote(
-                id = json.getString("_id"),
-                text = text,
-                author = json.optString("author").ifBlank { "Unknown" }
-            )
-        }
-
-        /** Parses the shape this app writes to local storage. Throws JSONException if malformed. */
-        fun fromStorageJson(json: JSONObject): Quote = Quote(
-            id = json.getString("id"),
-            text = json.getString("text"),
-            author = json.getString("author")
-        )
-    }
-}
-
 data class AppSettings(
     val darkTheme: Boolean = false,
     val reminderEnabled: Boolean = false,

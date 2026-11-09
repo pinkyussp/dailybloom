@@ -16,43 +16,23 @@ import androidx.core.content.ContextCompat
 import com.example.dailyquotes.MainActivity
 import com.example.dailyquotes.R
 import com.example.dailyquotes.data.LocalStore
-import com.example.dailyquotes.data.Quote
-import com.example.dailyquotes.data.QuoteApi
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 /**
- * Fired by AlarmManager at the reminder time. Shows a notification containing today's quote,
- * fetching a fresh one first if none has been saved yet today.
+ * Fired by AlarmManager at the reminder time. Prompts the user to write today's note,
+ * unless today's note is already written.
  */
 class ReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val store = LocalStore(context)
         if (!store.loadSettings().reminderEnabled) return
-
-        // goAsync keeps the receiver alive while the network request runs.
-        val pendingResult = goAsync()
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            try {
-                val quote = try {
-                    store.loadTodayQuote() ?: QuoteApi.fetchRandomQuote().also {
-                        store.saveTodayQuote(it)
-                    }
-                } catch (e: Exception) {
-                    null // Offline: fall back to a generic notification.
-                }
-                showNotification(context, quote)
-            } finally {
-                pendingResult.finish()
-            }
-        }
+        if (store.loadNotes().containsKey(LocalDate.now())) return
+        showNotification(context)
     }
 
     @SuppressLint("MissingPermission")
-    private fun showNotification(context: Context, quote: Quote?) {
+    private fun showNotification(context: Context) {
         // Android 13+ requires the user to grant notification permission.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -70,13 +50,10 @@ class ReminderReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val text = quote?.shareText() ?: context.getString(R.string.reminder_fallback)
-
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.reminder_title))
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentText(context.getString(R.string.reminder_text))
             .setContentIntent(openApp)
             .setAutoCancel(true)
             .build()
@@ -90,7 +67,7 @@ class ReminderReceiver : BroadcastReceiver() {
             "Daily reminder",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "A daily motivational quote"
+            description = "A daily reminder to write your note"
         }
         context.getSystemService(NotificationManager::class.java)
             .createNotificationChannel(channel)
