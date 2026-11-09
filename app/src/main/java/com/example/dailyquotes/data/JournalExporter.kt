@@ -21,11 +21,11 @@ object JournalExporter {
             entry.mood?.let { out.appendLine("Mood: ${it.label}") }
             if (entry.title.isNotBlank()) {
                 out.appendLine()
-                out.appendLine(entry.title.trim())
+                out.appendLine(com.example.dailyquotes.ui.Markup.plain(entry.title).trim())
             }
             if (entry.body.isNotBlank()) {
                 out.appendLine()
-                out.appendLine(entry.body.trim())
+                out.appendLine(com.example.dailyquotes.ui.Markup.plain(entry.body).trim())
             }
             if (entry.photos.isNotEmpty()) {
                 out.appendLine()

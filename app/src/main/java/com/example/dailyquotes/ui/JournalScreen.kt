@@ -14,6 +14,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.FormatBold
+import androidx.compose.material.icons.filled.FormatItalic
+import androidx.compose.material.icons.filled.FormatUnderlined
+import androidx.compose.material.icons.filled.Title
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -87,6 +91,16 @@ fun JournalScreen(
         val atLineStart = cursor == 0 || body.text[cursor - 1] == '\n'
         insertAtCursor(if (atLineStart) prefix else "\n$prefix")
     }
+
+    fun wrapSelection(marker: String) {
+        val a = minOf(body.selection.start, body.selection.end).coerceIn(0, body.text.length)
+        val b = maxOf(body.selection.start, body.selection.end).coerceIn(0, body.text.length)
+        val newText = body.text.substring(0, a) + marker + body.text.substring(a, b) + marker + body.text.substring(b)
+        val range = if (a == b) TextRange(a + marker.length) else TextRange(a + marker.length, b + marker.length)
+        setBody(TextFieldValue(newText, range))
+    }
+
+    val markerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
 
     val photos = entry?.photos.orEmpty()
     val remaining = MAX_PHOTOS_PER_ENTRY - photos.size
@@ -169,7 +183,8 @@ fun JournalScreen(
                 .fillMaxWidth()
                 .heightIn(min = 260.dp),
             shape = RoundedCornerShape(24.dp),
-            placeholder = { Text(if (showPrompt) prompt else "Write about your day") }
+            placeholder = { Text(if (showPrompt) prompt else "Write about your day") },
+            visualTransformation = remember(markerColor) { MarkupTransformation(markerColor) }
         )
 
         Row(
@@ -178,6 +193,10 @@ fun JournalScreen(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            FormatChip("Bold", Icons.Filled.FormatBold) { wrapSelection("**") }
+            FormatChip("Italic", Icons.Filled.FormatItalic) { wrapSelection("*") }
+            FormatChip("Underline", Icons.Filled.FormatUnderlined) { wrapSelection("__") }
+            FormatChip("Heading", Icons.Filled.Title) { insertLinePrefix("# ") }
             AssistChip(
                 onClick = { insertLinePrefix("- ") },
                 label = { Text("Bullet") },
@@ -248,4 +267,15 @@ fun JournalScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+@Composable
+private fun FormatChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(label) },
+        leadingIcon = {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+    )
 }
