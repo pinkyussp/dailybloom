@@ -8,12 +8,24 @@ android {
     namespace = "com.example.dailyquotes"
     compileSdk = 35
 
+    // One fixed signing key for every build, so each new APK installs as an update
+    // over the previous one instead of failing with "App not installed".
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.example.dailyquotes"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Must increase on every update. CI sets GITHUB_RUN_NUMBER, which always grows.
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
+        versionName = "1.1"
     }
 
     buildTypes {
