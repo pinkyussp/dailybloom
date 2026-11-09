@@ -28,11 +28,17 @@ jobs:
           gradle-version: '8.9'
 
       # Uses the Gradle installed above, so no Gradle wrapper files need to be committed.
-      - name: Build debug APK
-        run: gradle testDebugUnitTest assembleDebug --no-daemon
+      - name: Run unit tests and build APKs
+        run: gradle testDebugUnitTest assembleDebug assembleRelease --no-daemon
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: dailybloom-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dailybloom-release-apk
+          path: app/build/outputs/apk/release/*.apk

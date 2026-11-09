@@ -64,6 +64,16 @@ object Markup {
 }
 
 class MarkupTransformation(private val markerColor: Color) : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText =
-        TransformedText(Markup.styled(text.text, markerColor), OffsetMapping.Identity)
+    // Recompute styling only when the text actually changes, not on every redraw.
+    private var lastInput: String? = null
+    private var lastOutput: TransformedText? = null
+
+    override fun filter(text: AnnotatedString): TransformedText {
+        val cached = lastOutput
+        if (cached != null && lastInput == text.text) return cached
+        val output = TransformedText(Markup.styled(text.text, markerColor), OffsetMapping.Identity)
+        lastInput = text.text
+        lastOutput = output
+        return output
+    }
 }

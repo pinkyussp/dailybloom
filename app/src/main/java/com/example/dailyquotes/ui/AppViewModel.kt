@@ -32,6 +32,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _entries = MutableStateFlow(store.loadEntries())
     val entries: StateFlow<Map<LocalDate, Entry>> = _entries.asStateFlow()
 
+    // Latest entries, updated on every keystroke. Published to `entries` only after a pause,
+    // so the calendar does not redraw while the user is typing.
+    private var latest: Map<LocalDate, Entry> = _entries.value
+
     // Separate, narrow flows so typing only refreshes the journal, not the whole app.
     private val _todayEntry = MutableStateFlow(_entries.value[LocalDate.now()])
     val todayEntry: StateFlow<Entry?> = _todayEntry.asStateFlow()
@@ -58,16 +62,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     /** Applies a change to today's entry. Past days can never be edited. */
     fun updateToday(transform: (Entry) -> Entry) {
         val date = LocalDate.now()
-        val current = _entries.value[date] ?: Entry(date = date)
+        val current = latest[date] ?: Entry(date = date)
         val updated = transform(current)
 
-        val map = _entries.value.toMutableMap()
+        val map = latest.toMutableMap()
         if (updated.isBlank) {
             map.remove(date)
         } else {
             map[date] = updated
         }
-        _entries.value = map
+        latest = map
         dirtyDates += date
         _todayEntry.value = if (updated.isBlank) null else updated
         _streak.value = currentStreak(map, date)
@@ -76,7 +80,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Copies picked photos into app storage and attaches them to today's entry. */
     fun addPhotos(uris: List<Uri>) {
-        val room = MAX_PHOTOS_PER_ENTRY - (_entries.value[LocalDate.now()]?.photos?.size ?: 0)
+        val room = MAX_PHOTOS_PER_ENTRY - (latest[LocalDate.now()]?.photos?.size ?: 0)
         val toImport = uris.take(room.coerceAtLeast(0))
         if (toImport.isEmpty()) return
 
@@ -103,7 +107,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             delay(400)
             val changed = dirtyDates.toList()
             dirtyDates.clear()
-            val snapshot = _entries.value
+            val snapshot = latest
+            _entries.value = snapshot
             // Only the days that changed are written, and off the UI thread.
             withContext(Dispatchers.IO) {
                 changed.forEach { date ->
@@ -116,11 +121,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---- Export and data -----------------------------------------------
 
-    fun exportText(): String = JournalExporter.buildText(_entries.value.values)
+    fun exportText(): String = JournalExporter.buildText(latest.values)
 
     fun deleteAllData() {
         saveJob?.cancel()
-        _entries.value = emptyMap()
+        latest = emptyMap()
+        _entries.value = latest
         _todayEntry.value = null
         _streak.value = 0
         dirtyDates.clear()
