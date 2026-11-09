@@ -1,8 +1,10 @@
 package com.example.dailyquotes.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
@@ -21,10 +22,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -69,14 +74,17 @@ fun SavedScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
                     items(favourites, key = { it.id }) { quote ->
-                        SavedQuoteItem(
+                        SwipeableSavedItem(
                             quote = quote,
                             onRemove = onRemove,
                             onCopy = onCopy,
-                            onShare = onShare
+                            onShare = onShare,
+                            // Animates the remaining items closing the gap when one is removed.
+                            modifier = Modifier.animateItem()
                         )
                     }
                 }
@@ -85,13 +93,60 @@ fun SavedScreen(
     }
 }
 
+/** A saved quote that can be swiped left to remove. */
 @Composable
-private fun SavedQuoteItem(
+private fun SwipeableSavedItem(
     quote: Quote,
     onRemove: (Quote) -> Unit,
     onCopy: (Quote) -> Unit,
-    onShare: (Quote) -> Unit
+    onShare: (Quote) -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onRemove(quote)
+                true
+            } else {
+                false
+            }
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        modifier = modifier,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.error)
+                    .padding(end = 24.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "Remove",
+                    tint = MaterialTheme.colorScheme.onError
+                )
+            }
+        }
+    ) {
+        SavedQuoteCard(quote = quote, onCopy = onCopy, onShare = onShare, onRemove = onRemove)
+    }
+}
+
+@Composable
+private fun SavedQuoteCard(
+    quote: Quote,
+    onCopy: (Quote) -> Unit,
+    onShare: (Quote) -> Unit,
+    onRemove: (Quote) -> Unit
+) {
+    val mutedColor = MaterialTheme.colorScheme.onSurfaceVariant
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -109,17 +164,19 @@ private fun SavedQuoteItem(
             Text(
                 text = "— ${quote.author}",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = mutedColor
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                IconButton(onClick = { onCopy(quote) }) {
-                    Icon(Icons.Filled.ContentCopy, contentDescription = "Copy quote")
-                }
+                CopyIconButton(onCopy = { onCopy(quote) }, tint = mutedColor)
                 IconButton(onClick = { onShare(quote) }) {
-                    Icon(Icons.Filled.Share, contentDescription = "Share quote")
+                    Icon(
+                        Icons.Filled.Share,
+                        contentDescription = "Share quote",
+                        tint = mutedColor
+                    )
                 }
                 IconButton(onClick = { onRemove(quote) }) {
                     Icon(

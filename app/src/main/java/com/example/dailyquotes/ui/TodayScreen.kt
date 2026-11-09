@@ -1,5 +1,11 @@
 package com.example.dailyquotes.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -57,24 +63,37 @@ fun TodayScreen(
             )
         }
 
-        val quote = state.quote
-        when {
-            quote != null -> QuoteCard(
-                quote = quote,
-                isFavourite = isFavourite(quote),
-                onToggleFavourite = onToggleFavourite,
-                onCopy = onCopy,
-                onShare = onShare
-            )
-            state.isLoading -> LoadingCard()
-            else -> ErrorCard(
-                message = state.error ?: "Something went wrong.",
-                onRetry = onNewQuote
-            )
+        // Each new quote slides in from the right, fading in as the old one slides out left.
+        AnimatedContent(
+            targetState = state,
+            contentKey = { s -> s.quote?.id ?: if (s.isLoading) "loading" else "error" },
+            transitionSpec = {
+                (slideInHorizontally { it / 4 } + fadeIn()) togetherWith
+                    (slideOutHorizontally { -it / 4 } + fadeOut())
+            },
+            label = "quote"
+        ) { current ->
+            val quote = current.quote
+            Column {
+                when {
+                    quote != null -> QuoteCard(
+                        quote = quote,
+                        isFavourite = isFavourite(quote),
+                        onToggleFavourite = onToggleFavourite,
+                        onCopy = onCopy,
+                        onShare = onShare
+                    )
+                    current.isLoading -> LoadingCard()
+                    else -> ErrorCard(
+                        message = current.error ?: "Something went wrong.",
+                        onRetry = onNewQuote
+                    )
+                }
+            }
         }
 
         // Shown when a refresh fails but an older quote is still on screen.
-        if (quote != null && state.error != null) {
+        if (state.quote != null && state.error != null) {
             Text(
                 text = state.error,
                 style = MaterialTheme.typography.bodySmall,
