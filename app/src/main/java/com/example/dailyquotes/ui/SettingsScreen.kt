@@ -264,21 +264,21 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Dailybloom",
+                    text = "Dailybloom 1.1",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Version 1.1",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "Made by aym",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "A private journal for your days. Write one entry each day, add up to " +
-                        "10 photos, and look back on your calendar to see which days you wrote " +
-                        "and which you missed. Everything stays on your device.",
+                    text = "Write one entry a day, add up to 10 photos, and check the calendar " +
+                        "to see which days you wrote and which you missed. " +
+                        "Your entries stay on your phone.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

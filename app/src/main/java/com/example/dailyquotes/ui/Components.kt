@@ -3,7 +3,17 @@ package com.example.dailyquotes.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -108,6 +118,7 @@ fun PhotoThumb(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var viewing by remember { mutableStateOf(false) }
     val bitmap by produceState<ImageBitmap?>(initialValue = null, fileName) {
         value = withContext(Dispatchers.IO) {
             PhotoStore.decodeThumbnail(PhotoStore.file(context, fileName).path, maxSize = 360)
@@ -120,6 +131,7 @@ fun PhotoThumb(
             .size(size)
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable { viewing = true }
     ) {
         bitmap?.let { image ->
             Image(
@@ -145,6 +157,67 @@ fun PhotoThumb(
                     contentDescription = "Remove photo",
                     tint = Color.White,
                     modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+
+    if (viewing) PhotoViewer(fileName = fileName, onDismiss = { viewing = false })
+}
+
+/** Full-screen photo with pinch to zoom. Tap the close button or press back to leave. */
+@Composable
+fun PhotoViewer(fileName: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, fileName) {
+        value = withContext(Dispatchers.IO) {
+            PhotoStore.decodeThumbnail(PhotoStore.file(context, fileName).path, maxSize = 2048)
+                ?.asImageBitmap()
+        }
+    }
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    val transformState = rememberTransformableState { zoom, pan, _ ->
+        scale = (scale * zoom).coerceIn(1f, 5f)
+        offset = if (scale > 1f) offset + pan else Offset.Zero
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            bitmap?.let { image ->
+                Image(
+                    bitmap = image,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = offset.x
+                            translationY = offset.y
+                        }
+                        .transformable(transformState)
+                )
+            }
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Close photo",
+                    tint = Color.White
                 )
             }
         }
